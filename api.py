@@ -3,8 +3,15 @@ import sqlite3
 from fastapi import FastAPI
 from features import calculate_win_rate, calculate_head_to_head
 from datetime import date
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 with open("model.pkl", "rb") as f:
     model = pickle.load(f)

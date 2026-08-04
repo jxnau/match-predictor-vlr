@@ -1,0 +1,17 @@
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 500px;
+    margin: 60px auto;
+    padding: 0 20px;
+}
+select, button {
+    font-size: 16px;
+    padding: 8px;
+    margin: 8px 0;
+    width: 100%;
+}
+#result {
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+}

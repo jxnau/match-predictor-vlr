@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Valorant Match Predictor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Valorant Match Predictor</h1>
+
+    <label for="team1">Team 1</label>
+    <select id="team1"></select>
+
+    <label for="team2">Team 2</label>
+    <select id="team2"></select>
+
+    <button onclick="getPrediction()">Predict Winner</button>
+
+    <div id="result"></div>
+
+    <script>
+        const teams = [
+            "Paper Rex", "NRG", "Sentinels", "G2 Esports", "Team Vitality",
+            "Team Heretics", "Fnatic", "LOUD", "Gen.G", "T1",
+            "KIWOOM DRX", "EDward Gaming", "Bilibili Gaming"
+        ];
+
+        const team1Select = document.getElementById("team1");
+        const team2Select = document.getElementById("team2");
+
+        teams.forEach(team => {
+            team1Select.innerHTML += `<option value="${team}">${team}</option>`;
+            team2Select.innerHTML += `<option value="${team}">${team}</option>`;
+        });
+
+        async function getPrediction() {
+            const team1 = team1Select.value;
+            const team2 = team2Select.value;
+            const resultDiv = document.getElementById("result");
+
+            resultDiv.textContent = "Loading...";
+
+            const response = await fetch(`http://127.0.0.1:8000/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
+            const data = await response.json();
+
+            const probability = (data.team1_win_probability * 100).toFixed(1);
+            resultDiv.textContent = `${team1} has a ${probability}% chance of beating ${team2}`;
+        }
+    </script>
+</body>
+</html>
