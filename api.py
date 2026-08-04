@@ -36,5 +36,13 @@ def predict(team1: str, team2: str):
     return {
         "team1": team1,
         "team2": team2,
-        "team1_win_probability": round(probability, 3)
+        "team1_win_probability": round(probability, 3),
+        "stats": {
+            "team1_overall_winrate": round(team1_overall, 3),
+            "team2_overall_winrate": round(team2_overall, 3),
+            "team1_recent_winrate": round(team1_recent, 3),
+            "team2_recent_winrate": round(team2_recent, 3),
+            "h2h_team1_winrate": round(h2h_rate, 3),
+            "h2h_matches_played": h2h_count
+        }
     }

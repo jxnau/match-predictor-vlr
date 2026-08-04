@@ -69,7 +69,17 @@
             const data = await response.json();
 
             const probability = (data.team1_win_probability * 100).toFixed(1);
-            resultDiv.textContent = `${team1} has a ${probability}% chance of beating ${team2}`;
+            const s = data.stats;
+
+            resultDiv.innerHTML = `
+        <p>${team1} has a ${probability}% chance of beating ${team2}</p>
+        <table>
+            <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
+            <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
+            <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
+        </table>
+        <p>Head-to-head: ${team1} has won ${(s.h2h_team1_winrate * 100).toFixed(1)}% of their ${s.h2h_matches_played} previous meeting(s)</p>
+    `;
         }
     </script>
 </body>
