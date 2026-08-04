@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Valorant Match Predictor</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <h1>Valorant Match Predictor</h1>
 
@@ -28,9 +30,32 @@
         const team1Select = document.getElementById("team1");
         const team2Select = document.getElementById("team2");
 
-        teams.forEach(team => {
-            team1Select.innerHTML += `<option value="${team}">${team}</option>`;
-            team2Select.innerHTML += `<option value="${team}">${team}</option>`;
+        function populateDropdown(selectElement, excludeTeam) {
+            selectElement.innerHTML = "";
+            teams.forEach(team => {
+                if (team !== excludeTeam) {
+                    selectElement.innerHTML += `<option value="${team}">${team}</option>`;
+                }
+            });
+        }
+
+        populateDropdown(team1Select, null);
+        populateDropdown(team2Select, team1Select.value);
+
+        team1Select.addEventListener("change", () => {
+            const currentTeam2 = team2Select.value;
+            populateDropdown(team2Select, team1Select.value);
+            if (currentTeam2 !== team1Select.value) {
+                team2Select.value = currentTeam2;
+            }
+        });
+
+        team2Select.addEventListener("change", () => {
+            const currentTeam1 = team1Select.value;
+            populateDropdown(team1Select, team2Select.value);
+            if (currentTeam1 !== team2Select.value) {
+                team1Select.value = currentTeam1;
+            }
         });
 
         async function getPrediction() {
@@ -48,4 +73,5 @@
         }
     </script>
 </body>
+
 </html>
