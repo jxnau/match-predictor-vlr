@@ -21,11 +21,7 @@
     <div id="result"></div>
 
     <script>
-        const teams = [
-            "Paper Rex", "NRG", "Sentinels", "G2 Esports", "Team Vitality",
-            "Team Heretics", "Fnatic", "LOUD", "Gen.G", "T1",
-            "KIWOOM DRX", "EDward Gaming", "Bilibili Gaming"
-        ];
+        let teams = [];
 
         const team1Select = document.getElementById("team1");
         const team2Select = document.getElementById("team2");
@@ -39,8 +35,14 @@
             });
         }
 
-        populateDropdown(team1Select, null);
-        populateDropdown(team2Select, team1Select.value);
+        async function loadTeams() {
+            const response = await fetch("http://127.0.0.1:8000/teams");
+            teams = await response.json();
+            populateDropdown(team1Select, null);
+            populateDropdown(team2Select, team1Select.value);
+        }
+
+        loadTeams();
 
         team1Select.addEventListener("change", () => {
             const currentTeam2 = team2Select.value;

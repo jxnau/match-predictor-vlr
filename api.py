@@ -46,3 +46,20 @@ def predict(team1: str, team2: str):
             "h2h_matches_played": h2h_count
         }
     }
+    
+PARTNERED_TEAMS = [
+    "100 Thieves", "All Gamers", "BBL Esports", "Bilibili Gaming", "Cloud9",
+    "DetonatioN FocusMe", "Dragon Ranger Gaming", "EDward Gaming", "ENVY",
+    "Eternal Fire", "Evil Geniuses", "FNATIC", "FULL SENSE", "FunPlus Phoenix",
+    "FURIA", "FUT Esports", "G2 Esports", "Gen.G", "Gentle Mates", "GIANTX",
+    "Global Esports", "JDG Esports", "Karmine Corp", "KIWOOM DRX", "KRÜ Esports",
+    "LEVIATÁN", "LOUD", "MIBR", "Natus Vincere", "Nongshim RedForce", "Nova Esports",
+    "NRG", "Paper Rex", "PCIFIC Esports", "Rex Regum Qeon", "Sentinels", "T1",
+    "Team Heretics", "Team Liquid", "Team Secret", "Team Vitality",
+    "Titan Esports Club", "Trace Esports", "TYLOO", "VARREL", "Wolves Esports",
+    "Xi Lai Gaming", "ZETA DIVISION",
+]
+
+@app.get("/teams")
+def get_teams():
+    return sorted(PARTNERED_TEAMS)
