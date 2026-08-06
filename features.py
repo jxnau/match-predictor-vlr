@@ -10,18 +10,20 @@ def get_team_matches(team_name, before_date, conn):
     return cursor.fetchall()
 
 
-def calculate_win_rate(team_name, before_date, conn, last_n=None):
+def calculate_win_rate(team_name, before_date, conn, last_n=None, prior_weight=5):
     matches = get_team_matches(team_name, before_date, conn)
 
     if last_n is not None:
-        matches = matches[-last_n:]  # only keep the most recent N matches
+        matches = matches[-last_n:]
 
     if len(matches) == 0:
         return None
 
     wins = sum(1 for match in matches if match[2] == team_name)
-    win_rate = wins / len(matches)
-    return win_rate
+    total = len(matches)
+
+    smoothed_rate = (wins + prior_weight * 0.5) / (total + prior_weight)
+    return smoothed_rate
 
 
 def calculate_head_to_head(team1, team2, before_date, conn):

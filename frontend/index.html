@@ -8,15 +8,22 @@
 </head>
 
 <body>
-    <h1>Valorant Match Predictor</h1>
+    <h1>Match Predictor</h1>
+    <p class="subtitle">Valorant Champions Tour — win probability by matchup</p>
 
-    <label for="team1">Team 1</label>
-    <select id="team1"></select>
+    <div class="picker-row">
+        <div class="picker">
+            <label for="team1">Team 1</label>
+            <select id="team1"></select>
+        </div>
+        <div class="vs">VS</div>
+        <div class="picker">
+            <label for="team2">Team 2</label>
+            <select id="team2"></select>
+        </div>
+    </div>
 
-    <label for="team2">Team 2</label>
-    <select id="team2"></select>
-
-    <button onclick="getPrediction()">Predict Winner</button>
+    <button onclick="getPrediction()">Predict winner</button>
 
     <div id="result"></div>
 
@@ -65,23 +72,34 @@
             const team2 = team2Select.value;
             const resultDiv = document.getElementById("result");
 
-            resultDiv.textContent = "Loading...";
+            resultDiv.innerHTML = `<p class="result-summary">Loading...</p>`;
 
             const response = await fetch(`http://127.0.0.1:8000/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
             const data = await response.json();
 
-            const probability = (data.team1_win_probability * 100).toFixed(1);
+            const team1Pct = (data.team1_win_probability * 100).toFixed(1);
+            const team2Pct = (100 - data.team1_win_probability * 100).toFixed(1);
             const s = data.stats;
+            const h2hText = s.h2h_matches_played === 0
+                ? `${team1} and ${team2} have never played each other before.`
+                : `Head-to-head: ${team1} has won ${(s.h2h_team1_winrate * 100).toFixed(1)}% of their ${s.h2h_matches_played} previous meeting(s)`;
 
             resultDiv.innerHTML = `
-        <p>${team1} has a ${probability}% chance of beating ${team2}</p>
-        <table>
-            <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
-            <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
-            <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
-        </table>
-        <p>Head-to-head: ${team1} has won ${(s.h2h_team1_winrate * 100).toFixed(1)}% of their ${s.h2h_matches_played} previous meeting(s)</p>
-    `;
+                <div class="split-labels">
+                    <span>${team1Pct}%</span>
+                    <span>${team2Pct}%</span>
+                </div>
+                <div class="split-bar">
+                    <div class="split-bar-fill" style="width: ${team1Pct}%;"></div>
+                </div>
+                <p class="result-summary">${team1} vs ${team2}</p>
+                <table class="stat-table">
+                    <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
+                    <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
+                    <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
+                </table>
+                <p class="h2h-note">${h2hText}</p>
+            `;
         }
     </script>
 </body>
