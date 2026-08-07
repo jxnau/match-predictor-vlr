@@ -1,17 +1,38 @@
 import sqlite3
 
-def get_team_matches(team_name, before_date, conn):
+def get_team_matches(team_name, before_date, conn, core=None):
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT team1, team2, winner, date FROM matches
-        WHERE (team1 = ? OR team2 = ?) AND date < ?
-        ORDER BY date
-    """, (team_name, team_name, before_date))
+    if core is not None:
+        cursor.execute("""
+            SELECT team1, team2, winner, date FROM matches
+            WHERE ((team1 = ? AND team1_core = ?) OR (team2 = ? AND team2_core = ?)) AND date < ?
+            ORDER BY date
+        """, (team_name, core, team_name, core, before_date))
+    else:
+        cursor.execute("""
+            SELECT team1, team2, winner, date FROM matches
+            WHERE (team1 = ? OR team2 = ?) AND date < ?
+            ORDER BY date
+        """, (team_name, team_name, before_date))
     return cursor.fetchall()
 
 
-def calculate_win_rate(team_name, before_date, conn, last_n=None, prior_weight=5):
-    matches = get_team_matches(team_name, before_date, conn)
+def get_current_core(team_name, before_date, conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT team1_core, team2_core, team1, team2 FROM matches
+        WHERE (team1 = ? OR team2 = ?) AND date < ?
+        ORDER BY date DESC LIMIT 1
+    """, (team_name, team_name, before_date))
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    team1_core, team2_core, team1, team2 = row
+    return team1_core if team1 == team_name else team2_core
+
+
+def calculate_win_rate(team_name, before_date, conn, last_n=None, prior_weight=5, core=None):
+    matches = get_team_matches(team_name, before_date, conn, core=core)
 
     if last_n is not None:
         matches = matches[-last_n:]
@@ -44,16 +65,16 @@ def calculate_head_to_head(team1, team2, before_date, conn):
 
 def build_training_data(conn, recent_n=10):
     cursor = conn.cursor()
-    cursor.execute("SELECT team1, team2, winner, date FROM matches ORDER BY date")
+    cursor.execute("SELECT team1, team2, winner, date, team1_core, team2_core FROM matches ORDER BY date")
     all_matches = cursor.fetchall()
 
     training_rows = []
 
-    for team1, team2, winner, date in all_matches:
-        team1_overall = calculate_win_rate(team1, date, conn)
-        team2_overall = calculate_win_rate(team2, date, conn)
-        team1_recent = calculate_win_rate(team1, date, conn, last_n=recent_n)
-        team2_recent = calculate_win_rate(team2, date, conn, last_n=recent_n)
+    for team1, team2, winner, date, team1_core, team2_core in all_matches:
+        team1_overall = calculate_win_rate(team1, date, conn, core=team1_core)
+        team2_overall = calculate_win_rate(team2, date, conn, core=team2_core)
+        team1_recent = calculate_win_rate(team1, date, conn, last_n=recent_n, core=team1_core)
+        team2_recent = calculate_win_rate(team2, date, conn, last_n=recent_n, core=team2_core)
         h2h_rate, h2h_count = calculate_head_to_head(team1, team2, date, conn)
 
         if team1_overall is None or team2_overall is None:
@@ -64,7 +85,7 @@ def build_training_data(conn, recent_n=10):
             "team2_overall_winrate": team2_overall,
             "team1_recent_winrate": team1_recent,
             "team2_recent_winrate": team2_recent,
-            "h2h_winrate": h2h_rate if h2h_rate is not None else 0.5,  # neutral if no prior meetings
+            "h2h_winrate": h2h_rate if h2h_rate is not None else 0.5,
             "h2h_matches": h2h_count,
             "team1_won": 1 if winner == team1 else 0
         })

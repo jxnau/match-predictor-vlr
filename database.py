@@ -10,8 +10,10 @@ def setup_database():
                        event TEXT,
                        team1 TEXT,
                        team1_score INTEGER,
+                       team1_core TEXT,
                        team2 TEXT,
                        team2_score INTEGER,
+                       team2_core TEXT,
                        date TEXT,
                        winner TEXT,
                        UNIQUE(team1, team2, date)
