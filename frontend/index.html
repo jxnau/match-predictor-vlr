@@ -9,7 +9,7 @@
 
 <body>
     <h1>Match Predictor</h1>
-    <p class="subtitle">Valorant Champions Tour — win probability by matchup</p>
+    <p class="subtitle">Valorant Champions Tour - win probability by matchup</p>
 
     <div class="picker-row">
         <div class="picker">
@@ -44,6 +44,8 @@
         }
 
         async function loadTeams() {
+            team1Select.innerHTML = `<option>Server is waking up...</option>`;
+            team2Select.innerHTML = `<option>Server is waking up...</option>`;
             const response = await fetch(`${API_URL}/teams`);
             console.log("Response status:", response.status);
             teams = await response.json();
