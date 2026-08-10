@@ -10,9 +10,13 @@ def get_matches_page(team_id, team_slug):
     headers = {
         "User-Agent": "Mozilla/5.0 (educational project; contact: jxtanxj@gmail.com)"
     }
-    response = requests.get(url, headers=headers)
-    time.sleep(1)
-    return BeautifulSoup(response.text, "html.parser")
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        time.sleep(1)
+        return BeautifulSoup(response.text, "html.parser")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch {team_slug}: {e}")
+        return None
 
 
 teams = [
@@ -71,6 +75,8 @@ seen = set()
 
 for team_id, team_slug in teams:
     soup = get_matches_page(team_id, team_slug)
+    if soup is None:
+        continue
     match_cards = soup.find_all("a", class_="wf-card fc-flex m-item")
 
     for card in match_cards:
