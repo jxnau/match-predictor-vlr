@@ -44,8 +44,10 @@
         }
 
         async function loadTeams() {
-            const response = await fetch(`${API_URL}/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
+            const response = await fetch(`${API_URL}/teams`);
+            console.log("Response status:", response.status);
             teams = await response.json();
+            console.log("Teams received:", teams);
             populateDropdown(team1Select, null);
             populateDropdown(team2Select, team1Select.value);
         }
@@ -75,7 +77,7 @@
 
             resultDiv.innerHTML = `<p class="result-summary">Loading...</p>`;
 
-            const response = await fetch(`http://127.0.0.1:8000/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
+            const response = await fetch(`${API_URL}/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
             const data = await response.json();
 
             const team1Pct = (data.team1_win_probability * 100).toFixed(1);
