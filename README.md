@@ -1,4 +1,4 @@
-# Valorant match predictor
+# Match predictor
 
 I've created a full-stack ML app that predicts the win probability of all VCT teams if they were to go up against each other with an accuracy of 70%.
 This app takes into consideration of each teams current core roster when training and testing data to derive to this accuracy. For context, other published research on pre-match esports predictions typically land between 55-71% as well.
