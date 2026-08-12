@@ -12,7 +12,7 @@ from features import calculate_win_rate, calculate_head_to_head, get_current_cor
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://jaxmatchpredictor.netlify.app"],
+    allow_origins=["https://matchpredictorvlr.netlify.app"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
