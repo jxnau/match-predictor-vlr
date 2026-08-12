@@ -12,8 +12,8 @@ from features import calculate_win_rate, calculate_head_to_head, get_current_cor
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=["https://jaxmatchpredictor.netlify.app"],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
@@ -25,7 +25,7 @@ with open("model.pkl", "rb") as f:
     model = pickle.load(f)
 
 @app.get("/predict")
-@limiter.limit("10/minute")
+@limiter.limit("20/minute")
 def predict(request: Request,team1: str, team2: str):
     
     if team1 not in PARTNERED_TEAMS or team2 not in PARTNERED_TEAMS:
