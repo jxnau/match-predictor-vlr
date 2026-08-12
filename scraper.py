@@ -8,7 +8,7 @@ import sqlite3
 def get_matches_page(team_id, team_slug):
     url = f"https://www.vlr.gg/team/matches/{team_id}/{team_slug}/"
     headers = {
-        "User-Agent": "Mozilla/5.0 (educational project; contact: jxtanxj@gmail.com)"
+        "User-Agent": "Mozilla/5.0 (educational project; https://github.com/jxnau/match-predictor-ml-webapp)"
     }
     try:
         response = requests.get(url, headers=headers, timeout=15)

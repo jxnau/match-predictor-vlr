@@ -1,6 +1,9 @@
 import pickle
 import sqlite3
-from fastapi import FastAPI
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import FastAPI, Request, HTTPException
 from features import calculate_win_rate, calculate_head_to_head
 from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,11 +17,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 with open("model.pkl", "rb") as f:
     model = pickle.load(f)
 
 @app.get("/predict")
-def predict(team1: str, team2: str):
+@limiter.limit("10/minute")
+def predict(request: Request,team1: str, team2: str):
+    
+    if team1 not in PARTNERED_TEAMS or team2 not in PARTNERED_TEAMS:
+        raise HTTPException(status_code=400, detail="One or both teams are not partnered teams.")   
+    if team1 == team2:
+        raise HTTPException(status_code=400, detail="Team names must be different.")
+    
     conn = sqlite3.connect("matches.db")
     today = date.today().strftime("%Y/%m/%d")
     
@@ -65,5 +79,6 @@ PARTNERED_TEAMS = [
 ]
 
 @app.get("/teams")
-def get_teams():
+@limiter.limit("10/minute")
+def get_teams(request: Request):
     return sorted(PARTNERED_TEAMS)
