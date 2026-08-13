@@ -44,16 +44,23 @@
         }
 
         async function loadTeams() {
-            team1Select.innerHTML = `<option>Server is waking up...</option>`;
-            team2Select.innerHTML = `<option>Server is waking up...</option>`;
-            const response = await fetch(`${API_URL}/teams`);
-            console.log("Response status:", response.status);
-            teams = await response.json();
-            console.log("Teams received:", teams);
-            populateDropdown(team1Select, null);
-            populateDropdown(team2Select, team1Select.value);
-        }
+            team1Select.innerHTML = `<option>Loading teams...</option>`;
+            team2Select.innerHTML = `<option>Loading teams...</option>`;
 
+            try {
+                const response = await fetch(`${API_URL}/teams`);
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+                teams = await response.json();
+                populateDropdown(team1Select, null);
+                populateDropdown(team2Select, team1Select.value);
+            } catch (error) {
+                team1Select.innerHTML = `<option>Couldn't load teams</option>`;
+                team2Select.innerHTML = `<option>Couldn't load teams</option>`;
+                console.error("Failed to load teams:", error);
+            }
+        }
         loadTeams();
 
         team1Select.addEventListener("change", () => {
@@ -77,34 +84,47 @@
             const team2 = team2Select.value;
             const resultDiv = document.getElementById("result");
 
+            if (team1 === team2) {
+                resultDiv.innerHTML = `<p class="result-summary">Please select two different teams </p>`;
+                return;
+            }
+
             resultDiv.innerHTML = `<p class="result-summary">Loading...</p>`;
 
-            const response = await fetch(`${API_URL}/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
-            const data = await response.json();
+            try {
+                const response = await fetch(`${API_URL}/predict?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}`);
+                if (!response.ok) {
+                    resultDiv.innerHTML = `<p class = "result summary">Something went wrong (error ${response.status}). Please try again</p>`;
+                }
+                const data = await response.json();
 
-            const team1Pct = (data.team1_win_probability * 100).toFixed(1);
-            const team2Pct = (100 - data.team1_win_probability * 100).toFixed(1);
-            const s = data.stats;
-            const h2hText = s.h2h_matches_played === 0
-                ? `${team1} and ${team2} have never played each other before.`
-                : `Head-to-head: ${team1} has won ${(s.h2h_team1_winrate * 100).toFixed(1)}% of their ${s.h2h_matches_played} previous meeting(s)`;
+                const team1Pct = (data.team1_win_probability * 100).toFixed(1);
+                const team2Pct = (100 - data.team1_win_probability * 100).toFixed(1);
+                const s = data.stats;
+                const h2hText = s.h2h_matches_played === 0
+                    ? `${team1} and ${team2} have never played each other before.`
+                    : `Head-to-head: ${team1} has won ${(s.h2h_team1_winrate * 100).toFixed(1)}% of their ${s.h2h_matches_played} previous meeting(s)`;
 
-            resultDiv.innerHTML = `
-                <div class="split-labels">
-                    <span>${team1Pct}%</span>
-                    <span>${team2Pct}%</span>
-                </div>
-                <div class="split-bar">
-                    <div class="split-bar-fill" style="width: ${team1Pct}%;"></div>
-                </div>
-                <p class="result-summary">${team1} vs ${team2}</p>
-                <table class="stat-table">
-                    <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
-                    <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
-                    <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
-                </table>
-                <p class="h2h-note">${h2hText}</p>
-            `;
+                resultDiv.innerHTML = `
+                    <div class="split-labels">
+                        <span>${team1Pct}%</span>
+                        <span>${team2Pct}%</span>
+                    </div>
+                    <div class="split-bar">
+                        <div class="split-bar-fill" style="width: ${team1Pct}%;"></div>
+                    </div>
+                    <p class="result-summary">${team1} vs ${team2}</p>
+                    <table class="stat-table">
+                        <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
+                        <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
+                        <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
+                    </table>
+                    <p class="h2h-note">${h2hText}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="result-summary">Couldn't reach the server. Please check your connection and try again.</p>`;
+                console.error("Prediction request failed:", error);
+            }
         }
     </script>
 </body>
