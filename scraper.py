@@ -1,12 +1,19 @@
 import requests
 from bs4 import BeautifulSoup
+import re
+import sys
 import time
 from database import setup_database
 import sqlite3
 
+# Routine runs only read each team's first page of matches (the newest ~50).
+# `python scraper.py --full` pages back to FULL_SCRAPE_SINCE to rebuild the history.
+FULL_SCRAPE = "--full" in sys.argv
+FULL_SCRAPE_SINCE = "2023/01/01"
 
-def get_matches_page(team_id, team_slug):
-    url = f"https://www.vlr.gg/team/matches/{team_id}/{team_slug}/"
+
+def get_matches_page(team_id, team_slug, page=1):
+    url = f"https://www.vlr.gg/team/matches/{team_id}/{team_slug}/?page={page}"
     headers = {
         "User-Agent": "Mozilla/5.0 (educational project; https://github.com/jxnau/match-predictor-ml-webapp)"
     }
@@ -73,13 +80,31 @@ teams = [
 matches = []  # empty list to collect our results based on the teams in teams lsit
 seen = set()
 
-for team_id, team_slug in teams:
-    soup = get_matches_page(team_id, team_slug)
-    if soup is None:
-        continue
-    match_cards = soup.find_all("a", class_="wf-card fc-flex m-item")
+def get_match_cards(team_id, team_slug):
+    page = 1
+    while True:
+        soup = get_matches_page(team_id, team_slug, page)
+        if soup is None:
+            return
+        match_cards = soup.find_all("a", class_="wf-card fc-flex m-item")
+        if not match_cards:
+            return
+        yield from match_cards
+        if not FULL_SCRAPE:
+            return
+        oldest = match_cards[-1].find("div", class_="m-item-date").find("div").get_text(strip=True)
+        if oldest < FULL_SCRAPE_SINCE:
+            return
+        page += 1
 
-    for card in match_cards:
+
+for team_id, team_slug in teams:
+    for card in get_match_cards(team_id, team_slug):
+
+        match_id = re.match(r"^/(\d+)/", card.get("href", ""))
+        if match_id is None:
+            continue
+        vlr_match_id = int(match_id.group(1))
 
         result_div = card.find("div", class_="m-item-result")
         if "mod-win" not in result_div.get(
@@ -102,18 +127,21 @@ for team_id, team_slug in teams:
         team2_core_tag = team_blocks[1].find("div", class_="m-item-team-core")
         team2_core = team2_core_tag.get_text(strip=True) if team2_core_tag else None
 
-        scores = result_div.find_all("span")
-        score1 = int(scores[0].get_text(strip=True))
-        score2 = int(scores[1].get_text(strip=True))
+        scores = [s.get_text(strip=True) for s in result_div.find_all("span")]
+        if len(scores) < 2 or not scores[0].isdigit() or not scores[1].isdigit():
+            continue  # forfeits have a result but no score
+        score1, score2 = int(scores[0]), int(scores[1])
 
         date = card.find("div", class_="m-item-date").find("div").get_text(strip=True)
-
-        match_key = tuple(sorted([team1, team2]) + [date])
-        if match_key in seen:
+        if FULL_SCRAPE and date < FULL_SCRAPE_SINCE:
             continue
-        seen.add(match_key)
+
+        if vlr_match_id in seen:
+            continue
+        seen.add(vlr_match_id)
 
         match_data = {
+            "vlr_match_id": vlr_match_id,
             "event": event,
             "team1": team1,
             "team1_score": score1,
@@ -137,10 +165,11 @@ for m in matches:
     try:
         cursor.execute(
             """
-            INSERT INTO matches (event, team1, team1_score, team1_core, team2, team2_score, team2_core, date, winner)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO matches (vlr_match_id, event, team1, team1_score, team1_core, team2, team2_score, team2_core, date, winner)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
+                m["vlr_match_id"],
                 m["event"],
                 m["team1"],
                 m["team1_score"],

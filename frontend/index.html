@@ -11,6 +11,17 @@
     <h1>Match Predictor</h1>
     <p class="subtitle">Valorant Champions Tour - win probability by matchup</p>
 
+    <div class="tabs">
+        <button class="tab active" data-tab="live-tab">Live</button>
+        <button class="tab" data-tab="h2h-tab">Head-to-head</button>
+    </div>
+
+    <section id="live-tab" class="tab-panel">
+        <div id="live-list"></div>
+        <div id="live-match"></div>
+    </section>
+
+    <section id="h2h-tab" class="tab-panel" hidden>
     <div class="picker-row">
         <div class="picker">
             <label for="team1">Team 1</label>
@@ -26,6 +37,7 @@
     <button onclick="getPrediction()">Predict winner</button>
 
     <div id="result"></div>
+    </section>
 
     <script>
         const API_URL = "https://match-predictor-ml-webapp.onrender.com";
@@ -116,6 +128,7 @@
                     <p class="result-summary">${team1} vs ${team2}</p>
                     <table class="stat-table">
                         <tr><th></th><th>${team1}</th><th>${team2}</th></tr>
+                        <tr><td>Elo rating</td><td>${s.team1_elo}</td><td>${s.team2_elo}</td></tr>
                         <tr><td>Overall win rate</td><td>${(s.team1_overall_winrate * 100).toFixed(1)}%</td><td>${(s.team2_overall_winrate * 100).toFixed(1)}%</td></tr>
                         <tr><td>Recent form (last 10)</td><td>${(s.team1_recent_winrate * 100).toFixed(1)}%</td><td>${(s.team2_recent_winrate * 100).toFixed(1)}%</td></tr>
                     </table>
@@ -125,6 +138,140 @@
                 resultDiv.innerHTML = `<p class="result-summary">Couldn't reach the server. Please check your connection and try again.</p>`;
                 console.error("Prediction request failed:", error);
             }
+        }
+
+        document.querySelectorAll(".tab").forEach(tab => {
+            tab.addEventListener("click", () => {
+                document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === tab));
+                document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.id !== tab.dataset.tab);
+            });
+        });
+
+        const POLL_MS = 30000;
+        const liveList = document.getElementById("live-list");
+        const liveMatch = document.getElementById("live-match");
+        let pollTimer = null;
+        let history = []; 
+
+        function esc(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        const pct = p => (p * 100).toFixed(1);
+
+        async function loadLiveMatches() {
+            liveList.innerHTML = `<p class="result-summary">Loading matches... (the server may take a minute to wake up)</p>`;
+            try {
+                const response = await fetch(`${API_URL}/live/matches`);
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                const matches = await response.json();
+                if (matches.length === 0) {
+                    liveList.innerHTML = `<p class="result-summary">No live or upcoming matches between partnered teams right now.</p>`;
+                    return;
+                }
+                liveList.innerHTML = `
+                    <p class="section-label">Live and upcoming matches</p>
+                    ${matches.map(m => `
+                        <button class="match-row" data-id="${m.match_id}">
+                            <span class="match-row-teams">${esc(m.team1)} <span class="vs-small">vs</span> ${esc(m.team2)}</span>
+                            <span class="match-row-meta">
+                                ${m.status === "live" ? `<span class="live-badge">Live</span>` : esc(m.status)}
+                                · ${esc(m.series || m.event)}
+                            </span>
+                        </button>
+                    `).join("")}
+                `;
+                liveList.querySelectorAll(".match-row").forEach(row => {
+                    row.addEventListener("click", () => followMatch(Number(row.dataset.id)));
+                });
+            } catch (error) {
+                liveList.innerHTML = `<p class="result-summary">Couldn't load matches. Please try again in a minute.</p>`;
+                console.error("Failed to load live matches:", error);
+            }
+        }
+        loadLiveMatches();
+
+        function followMatch(matchId) {
+            clearTimeout(pollTimer);
+            history = [];
+            liveMatch.innerHTML = `<p class="result-summary">Loading match...</p>`;
+            liveMatch.scrollIntoView({ behavior: "smooth", block: "start" });
+            pollMatch(matchId);
+        }
+
+        async function pollMatch(matchId) {
+            try {
+                const response = await fetch(`${API_URL}/live/${matchId}`);
+                const data = await response.json();
+                if (!response.ok) {
+                    liveMatch.innerHTML = `<p class="result-summary">${esc(data.detail || `Something went wrong (error ${response.status}).`)}</p>`;
+                    return;
+                }
+                if (history[history.length - 1] !== data.live_win_probability) {
+                    history.push(data.live_win_probability);
+                }
+                renderLiveMatch(data);
+                if (data.status !== "final") {
+                    pollTimer = setTimeout(() => pollMatch(matchId), POLL_MS);
+                }
+            } catch (error) {
+                console.error("Live update failed:", error);
+                pollTimer = setTimeout(() => pollMatch(matchId), POLL_MS);
+            }
+        }
+
+        function trendLine(points) {
+            if (points.length < 2) return "";
+            const w = 100, h = 40;
+            const coords = points.map((p, i) => `${(i / (points.length - 1)) * w},${(1 - p) * h}`).join(" ");
+            return `
+                <svg class="trend" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-label="Win probability trend">
+                    <line x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}" class="trend-mid" />
+                    <polyline points="${coords}" class="trend-line" />
+                </svg>
+            `;
+        }
+
+        function renderLiveMatch(data) {
+            const t1 = esc(data.team1), t2 = esc(data.team2);
+            const p = data.live_win_probability;
+            const [won, lost] = data.maps_won;
+            const statusText = data.status === "live" ? `<span class="live-badge">Live</span>`
+                : data.status === "final" ? "Final" : "Not started";
+
+            const mapRows = data.maps.map((m, i) => {
+                const isCurrent = !m.finished;
+                const mapProb = isCurrent && data.current_map_win_probability !== null
+                    ? `${pct(data.current_map_win_probability)}%` : (m.score1 > m.score2 ? t1 : t2) + " won";
+                return `<tr class="${isCurrent ? "current-map" : ""}">
+                    <td>Map ${i + 1}${m.map ? ` · ${esc(m.map)}` : ""}</td>
+                    <td>${m.score1} - ${m.score2}</td>
+                    <td>${mapProb}</td>
+                </tr>`;
+            }).join("");
+
+            liveMatch.innerHTML = `
+                <p class="result-summary">${t1} vs ${t2} · Bo${data.best_of} · ${statusText} · Maps ${won}-${lost}</p>
+                <div class="split-labels">
+                    <span>${t1} ${pct(p)}%</span>
+                    <span>${pct(1 - p)}% ${t2}</span>
+                </div>
+                <div class="split-bar">
+                    <div class="split-bar-fill" style="width: ${pct(p)}%;"></div>
+                </div>
+                ${trendLine(history)}
+                <p class="h2h-note">Pre-match: ${t1} ${pct(data.pre_match_win_probability)}%
+                    (≈${pct(data.implied_map_win_probability)}% per map, ${pct(data.implied_round_win_probability)}% per round)</p>
+                ${data.maps.length ? `
+                    <table class="stat-table">
+                        <tr><th>Map</th><th>Rounds</th><th>${t1} map win</th></tr>
+                        ${mapRows}
+                    </table>` : ""}
+                <p class="h2h-note">Updates every 30s from vlr.gg, which can lag behind the broadcast.
+                    Assumes every round is an independent coin flip weighted by the pre-match odds, so side, economy and map picks aren't factored in.</p>
+            `;
         }
     </script>
 </body>

@@ -63,31 +63,62 @@ def calculate_head_to_head(team1, team2, before_date, conn):
     return h2h_rate, len(results)
 
 
-def build_training_data(conn, recent_n=10):
+ELO_K = 48
+ELO_START = 1500
+
+
+def elo_history(conn, k=ELO_K):
+    """Replay every match in date order and track each team's Elo rating.
+
+    Returns (matches, pre_match, ratings, games): pre_match[i] is (team1_elo, team2_elo) going into
+    matches[i], ratings is every team's rating after the last match, and games[team] is how many
+    matches that team has played.
+    """
     cursor = conn.cursor()
-    cursor.execute("SELECT team1, team2, winner, date, team1_core, team2_core FROM matches ORDER BY date")
-    all_matches = cursor.fetchall()
+    cursor.execute("""
+        SELECT team1, team2, winner, date, team1_score, team2_score FROM matches
+        ORDER BY date, id
+    """)
+    matches = cursor.fetchall()
+
+    ratings = {}
+    games = {}
+    pre_match = []
+    for team1, team2, winner, date, score1, score2 in matches:
+        elo1 = ratings.get(team1, ELO_START)
+        elo2 = ratings.get(team2, ELO_START)
+        pre_match.append((elo1, elo2, games.get(team1, 0), games.get(team2, 0)))
+
+        expected = 1 / (1 + 10 ** ((elo2 - elo1) / 400))
+        result = 1.0 if winner == team1 else 0.0
+        # a 2-0 moves ratings more than a 2-1
+        margin = 1 + abs(score1 - score2) / max(score1 + score2, 1)
+        change = k * margin * (result - expected)
+        ratings[team1] = elo1 + change
+        ratings[team2] = elo2 - change
+        games[team1] = games.get(team1, 0) + 1
+        games[team2] = games.get(team2, 0) + 1
+
+    return matches, pre_match, ratings, games
+
+
+def elo_feature(elo1, elo2):
+    return [(elo1 - elo2) / 400]
+
+
+def build_training_data(conn):
+    """One row per match, in date order, using only what was known before the match was played."""
+    matches, pre_match, _, _ = elo_history(conn)
 
     training_rows = []
-
-    for team1, team2, winner, date, team1_core, team2_core in all_matches:
-        team1_overall = calculate_win_rate(team1, date, conn, core=team1_core)
-        team2_overall = calculate_win_rate(team2, date, conn, core=team2_core)
-        team1_recent = calculate_win_rate(team1, date, conn, last_n=recent_n, core=team1_core)
-        team2_recent = calculate_win_rate(team2, date, conn, last_n=recent_n, core=team2_core)
-        h2h_rate, h2h_count = calculate_head_to_head(team1, team2, date, conn)
-
-        if team1_overall is None or team2_overall is None:
+    for (team1, team2, winner, date, _, _), (elo1, elo2, games1, games2) in zip(matches, pre_match):
+        # skip a team's first match: its rating is still the 1500 starting value
+        if games1 == 0 or games2 == 0:
             continue
-
         training_rows.append({
-            "team1_overall_winrate": team1_overall,
-            "team2_overall_winrate": team2_overall,
-            "team1_recent_winrate": team1_recent,
-            "team2_recent_winrate": team2_recent,
-            "h2h_winrate": h2h_rate if h2h_rate is not None else 0.5,
-            "h2h_matches": h2h_count,
-            "team1_won": 1 if winner == team1 else 0
+            "date": date,
+            "features": elo_feature(elo1, elo2),
+            "team1_won": 1 if winner == team1 else 0,
         })
 
     return training_rows
