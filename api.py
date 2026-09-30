@@ -91,6 +91,12 @@ PARTNERED_TEAMS = [
     "Xi Lai Gaming", "ZETA DIVISION",
 ]
 
+#constant ping so render doesnt go idle
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"status": "ok"}
+
+
 @app.get("/teams")
 @limiter.limit("10/minute")
 def get_teams(request: Request):
