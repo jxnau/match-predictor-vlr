@@ -6,7 +6,7 @@ It also has a live predictor that updates the win probability round by round whi
 
 Live site: https://matchpredictorvlr.netlify.app/
 API: https://match-predictor-ml-webapp.onrender.com/docs
-(The API runs on Render which goes offline when there isn't traffic so it takes awhile before the frontend is able to access the API again)
+(The API runs on Render's free tier, which spins the server down after ~15 minutes without traffic. An UptimeRobot monitor pings the `/health` endpoint every 5 minutes to keep it awake, so the site loads without the ~1 minute wake-up delay.)
 
 # Notes 
 
@@ -22,6 +22,7 @@ DTB: Sqlite
 Backend: fastapi on Render
 Frontend: html, css, js on Netlify
 Automation: Github Actions for scheduled scraping
+Monitoring: UptimeRobot pings the API's `/health` endpoint to keep it awake
 
 ## Possible future improvements
 Map specific win rates
