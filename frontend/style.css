@@ -271,3 +271,29 @@ button:hover {
 a {
     color: #FF4655;
 }
+
+.odds-row {
+    margin-bottom: 16px;
+}
+
+.odds-label {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.odds-pct {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.odds-bar {
+    margin: 6px 0 4px;
+}
+
+.odds-sub {
+    color: #7C7F85;
+    font-size: 12px;
+}

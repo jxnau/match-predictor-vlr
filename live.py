@@ -1,4 +1,5 @@
 import re
+import threading
 import time
 from functools import lru_cache
 
@@ -105,16 +106,24 @@ def live_win_prob(p_series, best_of, maps):
 
 
 _cache = {}
+_locks = {}
+_locks_guard = threading.Lock()
 
 
 def _cached(key, ttl, fetch):
-    now = time.time()
     hit = _cache.get(key)
-    if hit and now - hit[0] < ttl:
+    if hit and time.time() - hit[0] < ttl:
         return hit[1]
-    value = fetch()
-    _cache[key] = (now, value)
-    return value
+
+    with _locks_guard:
+        lock = _locks.setdefault(key, threading.Lock())
+    with lock:
+        hit = _cache.get(key)
+        if hit and time.time() - hit[0] < ttl:
+            return hit[1]
+        value = fetch()
+        _cache[key] = (time.time(), value)
+        return value
 
 
 def _get_soup(url):

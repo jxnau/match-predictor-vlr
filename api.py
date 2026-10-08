@@ -7,7 +7,8 @@ from fastapi import FastAPI, Request, HTTPException
 from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
 from features import calculate_win_rate, calculate_head_to_head, get_current_core, elo_history, elo_feature, ELO_START
-from live import fetch_match_list, fetch_match, live_win_prob
+from live import fetch_match_list, fetch_match, live_win_prob, _cached
+from tournament import tournament_odds
 import requests
 
 app = FastAPI()
@@ -101,6 +102,20 @@ def health():
 @limiter.limit("10/minute")
 def get_teams(request: Request):
     return sorted(PARTNERED_TEAMS)
+
+
+@app.get("/tournament")
+@limiter.limit("20/minute")
+def tournament(request: Request):
+    def predict(team1, team2):
+        return pre_match_prediction(team1, team2)["team1_win_probability"]
+
+    try:
+        return _cached("tournament", 60, lambda: tournament_odds(predict))
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Couldn't reach vlr.gg.")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.get("/live/matches")

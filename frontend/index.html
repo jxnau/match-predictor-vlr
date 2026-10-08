@@ -14,6 +14,7 @@
     <div class="tabs">
         <button class="tab active" data-tab="live-tab">Live</button>
         <button class="tab" data-tab="upcoming-tab">Upcoming</button>
+        <button class="tab" data-tab="tournament-tab">Tournament</button>
         <button class="tab" data-tab="h2h-tab">Head-to-head</button>
     </div>
 
@@ -25,6 +26,10 @@
     <section id="upcoming-tab" class="tab-panel" hidden>
         <div id="upcoming-list"></div>
         <div id="upcoming-match"></div>
+    </section>
+
+    <section id="tournament-tab" class="tab-panel" hidden>
+        <div id="tournament"></div>
     </section>
 
     <section id="h2h-tab" class="tab-panel" hidden>
@@ -46,7 +51,7 @@
     </section>
 
     <script>
-        const API_URL = "https://match-predictor-ml-webapp.onrender.com";
+        const API_URL = "http://127.0.0.1:8000";
         let teams = [];
 
         const team1Select = document.getElementById("team1");
@@ -149,6 +154,55 @@
         function showTab(tabId) {
             document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabId));
             document.querySelectorAll(".tab-panel").forEach(p => p.hidden = p.id !== tabId);
+            if (tabId === "tournament-tab") loadTournament();
+        }
+
+        // ---------- tournament odds ----------
+        const tournamentDiv = document.getElementById("tournament");
+        let tournamentLoadedAt = 0;
+
+        async function loadTournament() {
+            // the server recalculates at most once a minute, so don't refetch more often than that
+            if (Date.now() - tournamentLoadedAt < 60000) return;
+            if (!tournamentLoadedAt) {
+                tournamentDiv.innerHTML = `<p class="result-summary">Simulating the rest of the tournament...</p>`;
+            }
+            try {
+                const response = await fetch(`${API_URL}/tournament`);
+                const data = await response.json();
+                if (!response.ok) {
+                    tournamentDiv.innerHTML = `<p class="result-summary">${esc(data.detail || `Something went wrong (error ${response.status}).`)}</p>`;
+                    return;
+                }
+                tournamentLoadedAt = Date.now();
+                renderTournament(data);
+            } catch (error) {
+                tournamentDiv.innerHTML = `<p class="result-summary">Couldn't reach the server. Please try again in a minute.</p>`;
+                console.error("Tournament request failed:", error);
+            }
+        }
+
+        function renderTournament(data) {
+            const rows = data.standings.map(s => `
+                <div class="odds-row">
+                    <div class="odds-label">
+                        <span>${esc(s.team)}</span>
+                        <span class="odds-pct">${pct(s.champion_probability)}%</span>
+                    </div>
+                    <div class="split-bar odds-bar">
+                        <div class="split-bar-fill" style="width: ${pct(s.champion_probability)}%;"></div>
+                    </div>
+                    <div class="odds-sub">Reaches grand final: ${pct(s.grand_final_probability)}%</div>
+                </div>
+            `).join("");
+
+            tournamentDiv.innerHTML = `
+                <p class="result-summary">${esc(data.event)} · Playoffs · ${data.matches_played} of ${data.matches_total} matches played</p>
+                <p class="section-label">Chance to win the tournament</p>
+                ${rows}
+                <p class="h2h-note">Based on ${data.simulations.toLocaleString()} simulations of the remaining playoff matches using the
+                    model's odds.</p>
+            `;
         }
 
         document.querySelectorAll(".tab").forEach(tab => {
